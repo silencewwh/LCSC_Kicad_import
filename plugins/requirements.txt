@@ -1,21 +1,7 @@
-# KiCad Plugin Requirements
-# Only external pip dependencies needed at runtime
+# Installed by the KiCad IPC plugin manager in this plugin's Python environment.
+# On Windows select KiCad's bundled bin/pythonw.exe in the plugin settings.
+# Its custom wxPython build has no pip distribution metadata; do not replace it.
+kicad-python>=0.8.0,<0.9
+wxPython>=4.2.2,<5; sys_platform != 'win32'
 
-# IPC API connection to KiCad
-kicad-python>=0.4.0
-
-# Process scanning to detect the active KiCad project.
-# Required on Windows; improves reliability on macOS (handles paths with spaces).
-psutil
-
-# Bundled via git submodule - not installed via pip:
-# - kiutils       (plugins/kiutils/src/kiutils/)
-# - easyeda2kicad (plugins/easyeda2kicad/easyeda2kicad/)
-
-# SVG -> PNG rendering for component preview thumbnails (text support).
-# Optional: without it, SVG previews fall back to wx.svg (shapes only, no text).
-cairosvg
-
-# Provided by KiCad itself - not installed via pip:
-# - pcbnew   (SWIG bindings)
-# - wxPython (GUI)
+# The EasyEDA converter is bundled with the package and uses the standard library.

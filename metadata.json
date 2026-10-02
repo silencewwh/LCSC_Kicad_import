@@ -1,43 +1,27 @@
 {
-    "$schema": "https://go.kicad.org/pcm/schemas/v1",
-    "name": "impart GUI for KiCad",
-    "description": "Import library files from Octopart, Samacsys, Ultralibrarian, Snapeda and EasyEDA",
-    "description_full": "Import library files from Octopart, Samacsys, Ultralibrarian, Snapeda and EasyEDA.\n For usage and correct setup please read the Readme: \n https://github.com/Steffen-W/Import-LIB-KiCad-Plugin#use-of-the-application",
-    "identifier": "com.github.Steffen-W.impartGUI",
-    "type": "plugin",
-    "author": {
-        "name": "Steffen Wittemeier",
-        "contact": {
-            "github": "https://github.com/Steffen-W"
-        }
-    },
-    "maintainer": {
-        "name": "Steffen Wittemeier",
-        "contact": {
-            "github": "https://github.com/Steffen-W"
-        }
-    },
-    "license": "GPL-3.0",
-    "resources": {
-        "homepage": "https://github.com/Steffen-W/Import-LIB-KiCad-Plugin"
-    },
-    "tags": [
-        "import",
-        "library",
-        "octopart",
-        "samacsys",
-        "ultralibrarian",
-        "snapeda",
-        "easyeda"
-    ],
-    "keep_on_update": [
-        "^/plugins/com_github_Steffen-W_impartGUI/config\\.ini$"
-    ],
-    "versions": [
-        {
-            "version": "2025.00.00",
-            "status": "stable",
-            "kicad_version": "8.0.4"
-        }
-    ]
+  "$schema": "https://go.kicad.org/pcm/schemas/v2",
+  "name": "立创元件桥 · LCSC KiCad Bridge",
+  "description": "从立创商品页面一键导入当前 KiCad 工程的符号、封装和 3D 模型。",
+  "description_full": "在 KiCad 10 原理图编辑器或 PCB 编辑器的工具栏打开立创浏览器，点击商品页面上的导入按钮，将符号、封装和可用的 3D 模型下载到当前工程并登记工程库。采用 KiCad IPC 插件接口，需要启用 API 服务器并完成 Python 插件环境初始化。",
+  "identifier": "com.github.lcsc-kicad.browser",
+  "type": "plugin",
+  "author": {
+    "name": "LCSC KiCad Bridge contributors",
+    "contact": {}
+  },
+  "maintainer": {
+    "name": "LCSC KiCad Bridge contributors",
+    "contact": {}
+  },
+  "license": "GPL-3.0",
+  "resources": {},
+  "tags": ["lcsc", "library", "schematic", "pcb"],
+  "versions": [
+    {
+      "version": "0.4.0",
+      "status": "development",
+      "kicad_version": "10.0.0",
+      "runtime": "ipc"
+    }
+  ]
 }

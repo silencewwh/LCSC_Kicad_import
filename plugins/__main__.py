@@ -1,10 +1,6 @@
-import wx
+"""Allow launching the browser with ``python -m plugins`` in a source checkout."""
 
-from .impart_action import ImpartFrontend
+from .lcsc_launch import main
 
 if __name__ == "__main__":
-    app = wx.App()
-    frame = wx.Frame(None, title="KiCad Plugin")
-    frontend = ImpartFrontend()
-    frontend.ShowModal()
-    frontend.Destroy()
+    raise SystemExit(main())

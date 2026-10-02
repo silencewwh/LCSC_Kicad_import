@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN" data-surface="sidebar">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>立创元件桥</title>
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="shell.css">
+    <script src="shell.js" defer></script>
+  </head>
+  <body>
+    <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-back" viewBox="0 0 24 24"><path d="M20 12H4m7-7-7 7 7 7"/></symbol>
+      <symbol id="icon-forward" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/></symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 5v6h-6M20 11a8 8 0 1 0-2 7"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5"/></symbol>
+      <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7V5h6l2 2h10v13H3V7Z"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/></symbol>
+      <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="icon-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    </svg>
+
+    <nav class="browser-toolbar" aria-label="浏览器">
+      <div class="navigation-group" aria-label="导航">
+        <button type="button" id="nav-back" class="icon-btn" data-action="back" title="后退" aria-label="后退" disabled><svg class="icon" aria-hidden="true"><use href="#icon-back"/></svg></button>
+        <button type="button" id="nav-forward" class="icon-btn" data-action="forward" title="前进" aria-label="前进" disabled><svg class="icon" aria-hidden="true"><use href="#icon-forward"/></svg></button>
+        <button type="button" class="icon-btn" data-action="reload" title="刷新" aria-label="刷新"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg></button>
+        <button type="button" class="icon-btn home-btn" data-action="home" title="首页" aria-label="首页"><svg class="icon" aria-hidden="true"><use href="#icon-home"/></svg></button>
+      </div>
+      <form id="address-form" class="address-form" role="search">
+        <svg class="icon address-icon" aria-hidden="true"><use href="#icon-search"/></svg>
+        <label class="visually-hidden" for="address-input">料号或网址</label>
+        <input id="address-input" type="text" placeholder="料号或网址" autocomplete="off" spellcheck="false">
+        <button class="icon-btn open-button" type="submit" title="打开" aria-label="打开"><svg class="icon" aria-hidden="true"><use href="#icon-forward"/></svg></button>
+      </form>
+      <button type="button" id="toolbar-status" class="toolbar-status" data-action="toggle-panel" aria-expanded="false" hidden><span class="status-dot" aria-hidden="true"></span><span id="toolbar-status-text" role="status"></span></button>
+      <button type="button" id="project-button" class="project-button" data-action="choose-project" title="选择工程"><svg class="icon" aria-hidden="true"><use href="#icon-folder"/></svg><span id="toolbar-project">选择工程</span></button>
+      <button type="button" id="details-toggle" class="icon-btn" data-action="toggle-panel" title="导入记录" aria-label="导入记录" aria-expanded="false"><svg class="icon" aria-hidden="true"><use href="#icon-panel"/></svg></button>
+    </nav>
+
+    <aside class="sidebar" aria-label="导入记录">
+      <header class="panel-header"><h1>导入记录</h1><button type="button" class="icon-btn" data-action="toggle-panel" title="关闭" aria-label="关闭导入记录"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button></header>
+      <div class="sidebar-content">
+        <section class="project-section" aria-label="工程">
+          <span class="section-label">工程</span>
+          <h2 id="project-name">未选择</h2>
+          <p id="project-path" class="project-path" hidden></p>
+        </section>
+        <section id="status-card" class="status-card" data-tone="idle" aria-live="polite" aria-atomic="true" hidden>
+          <div class="status-heading"><svg id="status-icon" class="icon" aria-hidden="true"><use href="#icon-download"/></svg><span class="spinner-border spinner-border-sm" role="presentation"></span><h2 id="status-title"></h2></div>
+          <p id="status-message" hidden></p>
+        </section>
+        <section id="result-section" class="result-section" aria-label="元件" hidden>
+          <div class="result-identity"><h2 id="result-component"></h2><span id="result-library"></span></div>
+          <div id="result-assets" class="asset-list" aria-label="已导入内容"><span><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>符号</span><span><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>封装</span><span id="result-model"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>3D</span></div>
+        </section>
+        <details class="log-panel" hidden>
+          <summary><span>记录</span><span id="log-count" class="log-count">0</span><svg class="icon log-chevron" aria-hidden="true"><use href="#icon-chevron"/></svg></summary>
+          <div id="log-list" class="log-list" role="log" aria-live="polite" aria-relevant="additions"></div>
+        </details>
+      </div>
+    </aside>
+  </body>
+</html>

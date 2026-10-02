@@ -5,9 +5,12 @@ from __future__ import annotations
 import gzip
 import logging
 import sys
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, NamedTuple
+from time import perf_counter
+from typing import Any, NamedTuple
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -28,7 +31,6 @@ if easyeda_submodule.exists():
 
     logger.info(f"Using easyeda2kicad from: {easyeda_submodule}")
 
-from easyeda2kicad.easyeda.easyeda_api import EasyedaApi  # noqa: E402
 from easyeda2kicad.easyeda.easyeda_importer import (  # noqa: E402
     Easyeda3dModelImporter,
     EasyedaFootprintImporter,
@@ -40,6 +42,8 @@ from easyeda2kicad.kicad.export_kicad_footprint import (  # noqa: E402
     ExporterFootprintKicad,
 )
 from easyeda2kicad.kicad.export_kicad_symbol import ExporterSymbolKicad  # noqa: E402
+from lcsc_download_cache import CachedEasyedaApi as EasyedaApi  # noqa: E402
+from lcsc_model_download import is_step_data  # noqa: E402
 
 logger.info("Successfully imported easyeda2kicad modules")
 
@@ -51,6 +55,7 @@ class ImportPaths(NamedTuple):
     footprint_file: Path | None = None
     model_wrl: Path | None = None
     model_step: Path | None = None
+    model_status: str = "unavailable"
 
 
 @dataclass
@@ -65,6 +70,11 @@ class ImportConfig:
     compress_models: bool = False
 
 
+def _recognizable_step(data: Any) -> bool:
+    """Reject error pages and truncated responses before registering a STEP asset."""
+    return is_step_data(data)
+
+
 class EasyEDAImporter:
     """EasyEDA to KiCad component importer"""
 
@@ -72,11 +82,12 @@ class EasyEDAImporter:
         self.print_func = print_func or (lambda _: None)
         self.config = config
         self.config.base_folder = Path(self.config.base_folder).expanduser()
-        self.api = EasyedaApi()
+        self.api = EasyedaApi(print_func=self._print)
 
         self.symbol_lib_path = self.config.base_folder / f"{self.config.lib_name}.kicad_sym"
         self.footprint_dir = self.config.base_folder / f"{self.config.lib_name}.pretty"
         self.model_dir = self.config.base_folder / f"{self.config.lib_name}.3dshapes"
+        self._model_status = "unavailable"
 
     def _print(self, message: str) -> None:
         self.print_func(message)
@@ -145,70 +156,101 @@ class EasyEDAImporter:
         When compress_models is True, STEP is saved as .step.gz (gzip),
         natively supported by KiCad >= 6.0. WRL is not compressed.
         """
+        self._model_status = "failed"
         try:
             model_3d = Easyeda3dModelImporter(
                 easyeda_cp_cad_data=cad_data,
-                download_raw_3d_model=True,
+                download_raw_3d_model=False,
                 api=self.api,
             ).output
 
             if model_3d is None:
-                self._print("No 3D model available for this component.")
+                self._model_status = "unavailable"
+                self._print("此器件未提供 3D 模型，继续导入符号与封装。")
                 return None, None
-
-            exporter = Exporter3dModelKicad(model_3d=model_3d)
-            if not exporter.output:
-                self._print("No 3D model available for this component.")
-                return None, None
-
-            model_name = exporter.output.name
-
-            # When compression is on, check for already-compressed files before exporting
-            if not self.config.overwrite and self.config.compress_models:
-                step_gz = self.model_dir / f"{model_name}.step.gz"
-                if step_gz.exists():
-                    self._print("3D model files already exist.")
-                    wrl_path = self.model_dir / f"{model_name}.wrl"
-                    return wrl_path if wrl_path.exists() else None, step_gz
-
-            if not exporter.export(output_dir=str(self.model_dir), overwrite=self.config.overwrite):
-                self._print("3D model files already exist.")
-                return None, None
-
-            wrl_path = self.model_dir / f"{model_name}.wrl"
-            step_path = self.model_dir / f"{model_name}.step"
-
-            wrl: Path | None = wrl_path if wrl_path.exists() else None
-            step: Path | None = step_path if step_path.exists() else None
-
-            if self.config.compress_models and step:
-                gz_path = step.parent / (step.name + ".gz")
-                with (
-                    open(step, "rb") as f_in,
-                    gzip.open(gz_path, "wb", compresslevel=9) as f_out,
-                ):
-                    f_out.write(f_in.read())
-                step.unlink()
-                step = gz_path
-
-            if wrl:
-                self._print(f"Created 3D model (WRL): {wrl.name}")
-            if step:
-                self._print(f"Created 3D model (STEP): {step.name}")
-
-            return wrl, step
-
         except Exception as e:
-            self._print(f"Failed to import 3D model: {e}")
-            logger.error(f"3D model import failed: {e}")
+            self._print(f"3D 模型信息解析失败：{e}")
+            logger.error(f"3D model metadata failed: {e}")
             return None, None
+
+        started = perf_counter()
+        self._print("正在并行下载 OBJ 与 STEP 3D 模型…")
+
+        def download(method):
+            requested = perf_counter()
+            try:
+                return method(uuid=model_3d.uuid), None, perf_counter() - requested
+            except Exception as error:
+                # One failed resource must not discard the other model format.
+                return None, error, perf_counter() - requested
+
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="lcsc-model") as executor:
+            downloads = {
+                executor.submit(download, self.api.get_raw_3d_model_obj): ("OBJ", "raw_obj"),
+                executor.submit(download, self.api.get_step_3d_model): ("STEP", "step"),
+            }
+            for future in as_completed(downloads):
+                label, attribute = downloads[future]
+                data, error, elapsed = future.result()
+                if attribute == "step" and data and not _recognizable_step(data):
+                    data = None
+                    error = ValueError("服务器返回的内容不是完整的 STEP 模型。")
+                setattr(model_3d, attribute, data)
+                if error is not None:
+                    self._print(f"{label} 模型下载失败（{elapsed:.1f} 秒）：{error}")
+                    logger.warning("%s model download failed: %s", label, error)
+                elif data:
+                    self._print(f"{label} 模型下载完成（{elapsed:.1f} 秒）。")
+                else:
+                    self._print(f"未获取到 {label} 模型（{elapsed:.1f} 秒）。")
+
+        self._print(f"3D 下载阶段完成（{perf_counter() - started:.1f} 秒），正在保存可用模型…")
+        wrl: Path | None = None
+        step: Path | None = None
+        # The upstream exporter requires OBJ even to save STEP. Save each format
+        # independently so a valid STEP survives an OBJ download/conversion error.
+        if model_3d.raw_obj:
+            try:
+                exporter = Exporter3dModelKicad(model_3d=model_3d)
+                if exporter.output and exporter.output.raw_wrl:
+                    self.model_dir.mkdir(parents=True, exist_ok=True)
+                    wrl_path = self.model_dir / f"{model_3d.name}.wrl"
+                    if self.config.overwrite or not wrl_path.exists():
+                        wrl_path.write_text(exporter.output.raw_wrl, encoding="utf-8")
+                    wrl = wrl_path
+                    self._print(f"已保存 WRL 模型：{wrl.name}")
+            except Exception as error:
+                self._print(f"WRL 模型转换或保存失败：{error}")
+                logger.warning("WRL conversion failed: %s", error)
+        if model_3d.step:
+            try:
+                self.model_dir.mkdir(parents=True, exist_ok=True)
+                extension = "step.gz" if self.config.compress_models else "step"
+                step_path = self.model_dir / f"{model_3d.name}.{extension}"
+                if self.config.overwrite or not step_path.exists():
+                    if self.config.compress_models:
+                        with gzip.open(step_path, "wb", compresslevel=9) as stream:
+                            stream.write(model_3d.step)
+                    else:
+                        step_path.write_bytes(model_3d.step)
+                step = step_path
+                self._print(f"已保存 STEP 模型：{step.name}")
+            except Exception as error:
+                self._print(f"STEP 模型保存失败：{error}")
+                logger.warning("STEP save failed: %s", error)
+        if not wrl and not step:
+            self._print("未获取到可用 3D 模型，继续导入符号与封装。")
+        else:
+            self._model_status = "available"
+        return wrl, step
 
     def import_component(self, component_id: str) -> ImportPaths:
         """
         Import a component and all its assets.
         Returns ImportPaths with all created file paths.
         """
-        self._print(f"Starting import for EasyEDA/LCSC component: {component_id}")
+        started = perf_counter()
+        self._print(f"开始导入 {component_id}。")
 
         if not component_id.startswith("C"):
             error_msg = (
@@ -220,22 +262,27 @@ class EasyEDAImporter:
         self._ensure_directories()
 
         try:
+            phase = perf_counter()
+            self._print(f"正在下载 {component_id} 的符号与封装数据…")
             cad_data = self.api.get_cad_data_of_component(lcsc_id=component_id)
             if not cad_data:
                 error_msg = f"Failed to fetch CAD data for component {component_id}"
                 self._print(error_msg)
                 raise RuntimeError(error_msg)
+            self._print(f"符号与封装数据下载完成（{perf_counter() - phase:.1f} 秒）。")
 
             # Parse footprint for footprint export
+            self._print("正在转换符号与封装…")
             ee_footprint = EasyedaFootprintImporter(easyeda_cp_cad_data=cad_data).get_footprint()
 
             symbol_ok, _ = self._import_symbol(cad_data)
             wrl_path, step_path = self._import_3d_model(cad_data)
-            use_step = self.config.prefer_step and step_path is not None
+            use_step = step_path is not None and (self.config.prefer_step or wrl_path is None)
             if use_step and step_path:
                 model_ext = "step.gz" if self.config.compress_models else "step"
             else:
                 model_ext = "wrl"
+            self._print("正在保存封装与 3D 模型引用…")
             footprint_path = self._import_footprint(ee_footprint, model_ext=model_ext)
 
             result = ImportPaths(
@@ -243,20 +290,21 @@ class EasyEDAImporter:
                 footprint_file=footprint_path,
                 model_wrl=wrl_path,
                 model_step=step_path,
+                model_status="available" if wrl_path or step_path else self._model_status,
             )
 
-            created_files = sum(1 for path in result if path)
+            created_files = sum(1 for path in result[:4] if path)
             if created_files > 0:
                 self._print(
-                    f"EasyEDA import completed successfully! ({created_files} files created)"
+                    f"器件文件已生成（{perf_counter() - started:.1f} 秒，共 {created_files} 个文件）。"
                 )
             else:
-                self._print("EasyEDA import completed, but no new files were created")
+                self._print("转换结束，未生成新的器件文件。")
 
             return result
 
         except Exception as e:
-            self._print(f"EasyEDA import failed: {e}")
+            self._print(f"器件转换失败（{perf_counter() - started:.1f} 秒）：{e}")
             logger.error(f"Component import failed for {component_id}: {e}")
             raise
 

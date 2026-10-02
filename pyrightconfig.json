@@ -3,12 +3,11 @@
     "plugins"
   ],
   "exclude": [
-    "plugins/kiutils",
     "plugins/easyeda2kicad",
     "**/node_modules",
     "**/__pycache__"
   ],
-  "pythonVersion": "3.9",
+  "pythonVersion": "3.10",
   "typeCheckingMode": "basic",
   "reportMissingImports": false,
   "reportMissingTypeStubs": false

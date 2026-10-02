@@ -1,30 +1,16 @@
-name: Feature Request
-description: Suggest a new feature or improvement for the impartGUI KiCad plugin
-labels: ["enhancement"]
+name: 功能建议
+description: 为立创元件桥提出新的使用流程或改进建议
+labels: [enhancement]
 body:
   - type: textarea
-    id: problem
+    id: workflow
     attributes:
-      label: What problem are you trying to solve?
-      description: Describe the situation or limitation you are running into.
-      placeholder: "I often struggle with ... / It is not possible to ..."
+      label: 希望解决什么问题？
     validations:
       required: true
-
   - type: textarea
-    id: solution
+    id: result
     attributes:
-      label: What would you like to happen?
-      description: Describe your idea for a solution or improvement.
-      placeholder: "It would be great if the plugin could ..."
+      label: 期望的操作和结果
     validations:
       required: true
-
-  - type: textarea
-    id: additional_info
-    attributes:
-      label: Alternatives or additional context
-      description: Workarounds you have tried, screenshots, links, or anything else that might help.
-      placeholder: "Optional: add screenshots, links, or further details here."
-    validations:
-      required: false

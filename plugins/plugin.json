@@ -1,29 +1,22 @@
 {
   "$schema": "https://go.kicad.org/api/schemas/v1",
-  "identifier": "com.github.Steffen-W.impartGUI",
-  "name": "impart GUI for KiCad",
-  "description": "Import library files from Octopart, Samacsys, Ultralibrarian, Snapeda and EasyEDA",
+  "identifier": "com.github.lcsc-kicad.browser",
+  "name": "立创元件桥 · LCSC KiCad Bridge",
+  "description": "在立创商品页面点击导入按钮，将器件库保存到当前 KiCad 工程。",
   "runtime": {
     "type": "python",
-    "version": "3"
+    "min_version": "3.10"
   },
   "actions": [
     {
-      "identifier": "impart_action-action",
-      "name": "impartGUI (IPC API)",
-      "description": "impart_action",
+      "identifier": "open-lcsc-browser",
+      "name": "立创元件桥",
+      "description": "打开立创浏览器，点击商品页按钮导入当前工程",
       "show-button": true,
-      "scopes": [
-        "schematic",
-        "pcb"
-      ],
-      "entrypoint": "impart_action.py",
-      "icons-light": [
-        "icon.png"
-      ],
-      "icons-dark": [
-        "icon.png"
-      ]
+      "scopes": ["schematic", "pcb"],
+      "entrypoint": "lcsc_launch.py",
+      "icons-light": ["icon_24.png"],
+      "icons-dark": ["icon_24.png"]
     }
   ]
 }

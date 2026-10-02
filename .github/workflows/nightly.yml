@@ -1,41 +1,34 @@
-name: Nightly Pre-Release
+name: Build LCSC KiCad Bridge
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
+  pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - name: Checkout with submodules
+      - name: Checkout pinned source and submodules
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
-        run: sudo apt-get install -y --no-install-recommends jq zip
+      - name: Set up build Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Build ZIP
-        run: bash generate_zip.sh --no-update
+      - name: Build installation ZIP
+        run: python tools/build_lcsc_plugin.py
 
-      - name: Delete old nightly release
-        run: |
-          gh release delete nightly --yes 2>/dev/null || true
-          git push origin :refs/tags/nightly 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create nightly release
-        run: |
-          gh release create nightly \
-            --prerelease \
-            --title "Nightly Build ($(date +%Y.%m.%d))" \
-            --notes "Automatically generated from the latest commit on master." \
-            Import-LIB-KiCad-Plugin.zip
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload installation ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: LCSC-KiCad-Bridge
+          path: dist/LCSC-KiCad-Bridge.zip
+          if-no-files-found: error
