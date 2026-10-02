@@ -230,9 +230,14 @@ class BrowserChrome:
             for view in tuple(self.ready):
                 if self.closed or not self.trusted(view):
                     continue
-                ok, _ = view.RunScript(script)
-                if not ok:
-                    self.ready.discard(view)
+                try:
+                    ok, _ = view.RunScript(script)
+                except Exception:
+                    ok = False
+                if not ok and not self.closed:
+                    # A transient native failure does not trigger another ready
+                    # message. Retry on the existing timer, without nested calls.
+                    self.dirty = True
         finally:
             self.evaluating = False
             self.owner._script_active = False

@@ -240,6 +240,45 @@ class ShellLifecycleTests(unittest.TestCase):
         self.assertEqual(view.RunScript.call_count, 2)
         self.assertIn(chrome.model["status"], view.RunScript.call_args.args[0])
 
+    def test_failed_render_retries_latest_state_on_next_flush_only(self):
+        for failure in ((False, ""), RuntimeError("temporary native failure")):
+            with self.subTest(failure=failure):
+                chrome = self.make_chrome()
+                view = chrome.views[0]
+                chrome.ready.add(view)
+                view.RunScript.side_effect = [failure, (True, "true")]
+                with patch.object(ui.wx, "CallAfter") as call_after:
+                    chrome.flush()
+                    self.assertTrue(chrome.dirty)
+                    self.assertIn(view, chrome.ready)
+                    self.assertEqual(view.RunScript.call_count, 1)
+                    self.assertFalse(chrome.owner._script_active)
+                    call_after.assert_not_called()
+
+                    chrome.set("status", "Latest result")
+                    chrome.flush()
+                    self.assertEqual(view.RunScript.call_count, 2)
+                    self.assertIn("Latest result", view.RunScript.call_args.args[0])
+                    self.assertFalse(chrome.dirty)
+                    chrome.flush()
+                    self.assertEqual(view.RunScript.call_count, 2)
+                    chrome.views[1].RunScript.assert_not_called()
+
+    def test_failed_view_does_not_block_other_view_and_close_stops_retries(self):
+        chrome = self.make_chrome()
+        chrome.ready.update(chrome.views)
+        chrome.views[0].RunScript.side_effect = RuntimeError("native failure")
+        chrome.flush()
+        for view in chrome.views:
+            view.RunScript.assert_called_once()
+        self.assertTrue(chrome.dirty)
+        chrome.close()
+        chrome.flush()
+        for view in chrome.views:
+            view.RunScript.assert_called_once()
+        self.assertEqual(chrome.ready, set())
+        chrome.timer.Stop.assert_called_once()
+
     def test_remote_click_pumped_by_shell_evaluation_is_replayed_after_native_return(self):
         chrome = self.make_chrome()
         chrome.ready.update(chrome.views)

@@ -124,6 +124,8 @@ python tools/build_lcsc_plugin.py
 
 在仓库根目录运行 `python -m unittest discover -s tests -v` 可执行自动化检查；界面测试需要可用的 wxPython 环境。实际验证还应从原理图和 PCB 工具栏分别启动，使用测试工程点击网页按钮，并检查生成的符号、封装和模型。
 
+GitHub 构建会先运行回归测试，再生成安装包。云端使用 Python 和 Node.js 检查导入、下载及网页脚本；需要 wxPython 的原生界面测试仍须在 KiCad Python 环境中执行。
+
 `tools/smoke_lcsc_browser.py` 可在 KiCad Python 环境下检查实际商品页按钮、下载和重复导入，测试使用临时工程。`plugins/lcsc_launch.py --check` 可在插件使用的 Python 环境中检查运行依赖；此检查不打开编辑器，也不证明工具栏入口已成功加载。
 
 **0.3.0 验证结果**：在 Windows 的 KiCad 10.0.6 Python/WebView2 环境中，82 项自动化检查和 8 组离线原生界面检查通过。实机检查覆盖本地框架加载、导航及工程按钮消息、地址输入保护、长路径、导入中/完成/失败状态、活动记录和 1060×700 最小窗口布局。

@@ -97,6 +97,7 @@ class BrowserStateTests(unittest.TestCase):
         )
         for name in (
             "_start_import",
+            "_finish_import",
             "_on_page_import",
             "_confirm_import_target",
             "_handle_page_import",
@@ -599,6 +600,25 @@ class BrowserStateTests(unittest.TestCase):
             thread.assert_not_called()
         state._choose_project.assert_called_once_with(None)
         state._set_page_state.assert_called_with("C2040", "idle")
+
+    def test_failed_worker_start_restores_controls_and_allows_retry(self):
+        state = self.make_state()
+        with patch.object(browser, "Thread") as thread:
+            thread.return_value.start.side_effect = RuntimeError("cannot start worker")
+            with self.assertLogs(level="ERROR"):
+                state._on_page_import(self.message())
+            self.assertFalse(state._busy)
+            self.assertFalse(state._validating_click)
+            self.assertTrue(state.project_button.enabled)
+            self.assertEqual(state._last_error, "cannot start worker")
+            self.assertEqual(state.status.GetValue(), "C2040 导入失败")
+            state._set_page_state.assert_called_with("C2040", "error", "导入失败，点击重试")
+
+            thread.return_value.start.side_effect = None
+            state._on_page_import(self.message())
+            self.assertEqual(thread.return_value.start.call_count, 2)
+            self.assertTrue(state._busy)
+            self.assertIsNone(state._last_error)
 
     def test_details_toggle_updates_native_visibility_and_shared_model(self):
         state = self.make_state()

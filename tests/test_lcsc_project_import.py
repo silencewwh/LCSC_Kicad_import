@@ -239,6 +239,50 @@ class ProjectImportTests(unittest.TestCase):
         self.assertEqual((self.project / "sym-lib-table").read_bytes(), external_edit)
         self.assertEqual(self.import_assets(), [])
 
+    def test_table_changed_while_preparing_journal_aborts_before_commit(self):
+        table = self.project / "sym-lib-table"
+        table.write_bytes(b"(sym_lib_table (version 7))\n")
+        external_edit = (
+            b'(sym_lib_table (lib (name "User")(type "KiCad")(uri "user.kicad_sym")))\n'
+        )
+        real_write = importer._atomic_write
+
+        def edit_during_journal(path, content):
+            real_write(path, content)
+            if path.name == "journal.json":
+                table.write_bytes(external_edit)
+
+        with patch.object(importer, "_atomic_write", side_effect=edit_during_journal):
+            with self.assertRaisesRegex(RuntimeError, "changed during import"):
+                self.run_import()
+        self.assertEqual(table.read_bytes(), external_edit)
+        self.assertEqual(self.import_assets(), [])
+        self.assertFalse((self.project / "fp-lib-table").exists())
+        self.assertFalse(self.run_import().already_present)
+        self.assertIn(b'(name "User")', table.read_bytes())
+
+    def test_table_changed_after_commit_starts_is_not_overwritten_or_rolled_back(self):
+        table = self.project / "sym-lib-table"
+        table.write_bytes(b"(sym_lib_table (version 7))\n")
+        external_edit = (
+            b'(sym_lib_table (lib (name "User")(type "KiCad")(uri "user.kicad_sym")))\n'
+        )
+        real_write = importer._atomic_write
+
+        def edit_after_symbol(path, content):
+            real_write(path, content)
+            if path.name == "LCSC.kicad_sym":
+                table.write_bytes(external_edit)
+
+        with patch.object(importer, "_atomic_write", side_effect=edit_after_symbol):
+            with self.assertRaisesRegex(RuntimeError, "edited after interrupted import"):
+                self.run_import()
+        self.assertEqual(table.read_bytes(), external_edit)
+        self.assertTrue((self.project / "LCSC" / importer._RECOVERY).is_dir())
+        with self.assertRaisesRegex(RuntimeError, "edited after interrupted import"):
+            self.run_import()
+        self.assertEqual(table.read_bytes(), external_edit)
+
     def test_traversal_input_and_unsafe_names_are_rejected(self):
         for component in ("C2040/../C1", "C0", "C2040?x", "../C2040", "C2040\nC2041"):
             with self.subTest(component=component), self.assertRaises(ValueError):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import logging
+import re
 import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -213,6 +214,12 @@ class EasyEDAImporter:
             try:
                 exporter = Exporter3dModelKicad(model_3d=model_3d)
                 if exporter.output and exporter.output.raw_wrl:
+                    # The bundled exporter can return only a VRML header or empty
+                    # shapes. Such files must not make a failed model look installed.
+                    if not re.search(
+                        r"\bcoordIndex\s*\[\s*(?:\d+\s*,\s*){3}", exporter.output.raw_wrl
+                    ):
+                        raise ValueError("转换结果不含有效的 3D 模型面。")
                     self.model_dir.mkdir(parents=True, exist_ok=True)
                     wrl_path = self.model_dir / f"{model_3d.name}.wrl"
                     if self.config.overwrite or not wrl_path.exists():

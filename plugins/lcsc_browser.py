@@ -519,7 +519,11 @@ class LCSCBrowser(wx.Dialog):
         self._set_page_state(component_id, "importing")
         self.status.SetLabel(f"正在导入 {component_id}")
         self._append_log(f"\n{component_id} → {project}")
-        Thread(target=self._import_worker, args=(component_id, project), daemon=False).start()
+        try:
+            Thread(target=self._import_worker, args=(component_id, project), daemon=False).start()
+        except Exception as error:
+            logging.exception("Could not start the LCSC import worker")
+            self._finish_import(component_id, None, str(error))
 
     def _import_worker(self, component_id, project):
         try:

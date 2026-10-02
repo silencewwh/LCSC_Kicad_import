@@ -78,6 +78,7 @@ class ParallelModelsTests(unittest.TestCase):
         self.assertEqual({arrival[0] for arrival in arrivals}, {"obj", "step"})
         self.assertEqual(len({arrival[2] for arrival in arrivals}), 2)
         self.assertIn("#VRML V2.0", wrl.read_text(encoding="utf-8"))
+        self.assertIn("0,1,2,-1", wrl.read_text(encoding="utf-8"))
         self.assertEqual(step.read_bytes(), STEP)
         self.assertEqual(self.importer._model_status, "available")
         self.parse_model.assert_called_once_with(
@@ -136,6 +137,25 @@ class ParallelModelsTests(unittest.TestCase):
             wrl, step = self.importer._import_3d_model({})
         self.assertIsNone(wrl)
         self.assertEqual(step.read_bytes(), STEP)
+
+    def test_empty_wrl_geometry_remains_retryable_without_step(self):
+        self.api.get_step_3d_model.return_value = None
+        for obj in (OBJ.replace("usemtl body", "usemtl missing"), OBJ.replace("f 1 2 3", "")):
+            with self.subTest(obj=obj):
+                self.api.get_raw_3d_model_obj.return_value = obj
+                self.assertEqual(self.importer._import_3d_model({}), (None, None))
+                self.assertEqual(self.importer._model_status, "failed")
+                self.assertFalse((self.importer.model_dir / "test-model.wrl").exists())
+
+    def test_empty_wrl_geometry_does_not_discard_valid_step(self):
+        for obj in (OBJ.replace("usemtl body", "usemtl missing"), OBJ.replace("f 1 2 3", "")):
+            with self.subTest(obj=obj):
+                self.api.get_raw_3d_model_obj.return_value = obj
+                wrl, step = self.importer._import_3d_model({})
+                self.assertIsNone(wrl)
+                self.assertEqual(step.read_bytes(), STEP)
+                self.assertEqual(self.importer._model_status, "available")
+                self.assertFalse((self.importer.model_dir / "test-model.wrl").exists())
 
     def test_compressed_step_is_preserved_without_obj(self):
         self.api.get_raw_3d_model_obj.return_value = None

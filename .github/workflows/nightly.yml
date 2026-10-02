@@ -23,6 +23,14 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up JavaScript tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+
       - name: Build installation ZIP
         run: python tools/build_lcsc_plugin.py
 

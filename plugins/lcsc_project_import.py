@@ -375,6 +375,12 @@ def _commit_import(project: Path, directory: Path, updates: dict, originals: dic
             temporary / "journal.json",
             json.dumps({"owner": _SHARED_OWNER, "files": entries}).encode("utf-8"),
         )
+        # Writing and syncing large model backups can take time. Recheck before
+        # publishing the journal, while an external edit can still abort cleanly.
+        for path, before in originals.items():
+            _inside(path, project)
+            if _read_optional(path) != before:
+                raise RuntimeError(f"Library file changed during import; retry: {path}")
         os.replace(temporary, recovery)
     finally:
         if temporary.exists():
@@ -384,6 +390,9 @@ def _commit_import(project: Path, directory: Path, updates: dict, originals: dic
         # Complete assets before advertising the library to KiCad.
         for path, after in sorted(changed, key=lambda item: item[0].parent == project):
             before = originals[path]
+            _inside(path, project)
+            if _read_optional(path) != before:
+                raise RuntimeError(f"Library file changed during import; retry: {path}")
             if before is not None and path.parent == project:
                 with path.with_name(f"{path.name}.lcsc-{transaction}.bak").open("xb") as stream:
                     stream.write(before)
